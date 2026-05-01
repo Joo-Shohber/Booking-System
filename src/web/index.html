@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Booking & Queue — System Architecture</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+    :root {
+      --bg: #070B14;
+      --surface: #0D1525;
+      --card: #111827;
+      --border: #1E2D45;
+      --accent: #4F7EFF;
+      --teal: #00D4AA;
+      --amber: #F59E0B;
+      --rose: #F43F5E;
+      --green: #22C55E;
+      --purple: #A855F7;
+      --text: #E2E8F0;
+      --muted: #64748B;
+      --dim: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      padding: 40px 32px;
+      overflow-x: hidden;
+    }
+
+    /* ── noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 52px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(79, 126, 255, .12);
+      border: 1px solid rgba(79, 126, 255, .3);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: .08em;
+      margin-bottom: 20px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── section label ── */
+    .sec-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sec-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── layers ── */
+    .layer {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      padding: 20px 20px 16px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .layer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+
+    .layer.l-client::before {
+      background: linear-gradient(90deg, var(--muted), transparent);
+    }
+
+    .layer.l-api::before {
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+    }
+
+    .layer.l-services::before {
+      background: linear-gradient(90deg, var(--teal), var(--accent));
+    }
+
+    .layer.l-data::before {
+      background: linear-gradient(90deg, var(--amber), var(--rose));
+    }
+
+    .layer.l-workers::before {
+      background: linear-gradient(90deg, var(--rose), var(--purple));
+    }
+
+    .layer.l-obs::before {
+      background: linear-gradient(90deg, var(--green), var(--teal));
+    }
+
+    .layer-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .layer-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── chips row ── */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: default;
+      transition: transform .15s, box-shadow .15s;
+    }
+
+    .chip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+    }
+
+    .chip-icon {
+      font-size: 14px;
+    }
+
+    .chip-sub {
+      font-size: 10px;
+      font-weight: 400;
+      opacity: .7;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 1px;
+    }
+
+    .chip-body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* chip themes */
+    .c-accent {
+      background: rgba(79, 126, 255, .1);
+      border-color: rgba(79, 126, 255, .3);
+      color: #7BA7FF;
+    }
+
+    .c-teal {
+      background: rgba(0, 212, 170, .1);
+      border-color: rgba(0, 212, 170, .3);
+      color: #00D4AA;
+    }
+
+    .c-amber {
+      background: rgba(245, 158, 11, .1);
+      border-color: rgba(245, 158, 11, .3);
+      color: #FBB540;
+    }
+
+    .c-rose {
+      background: rgba(244, 63, 94, .1);
+      border-color: rgba(244, 63, 94, .3);
+      color: #F87191;
+    }
+
+    .c-green {
+      background: rgba(34, 197, 94, .1);
+      border-color: rgba(34, 197, 94, .3);
+      color: #4ADE80;
+    }
+
+    .c-purple {
+      background: rgba(168, 85, 247, .1);
+      border-color: rgba(168, 85, 247, .3);
+      color: #C084FC;
+    }
+
+    .c-dim {
+      background: rgba(51, 65, 85, .2);
+      border-color: rgba(51, 65, 85, .5);
+      color: #94A3B8;
+    }
+
+    /* ── flow section ── */
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .flow-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flow-card::before {
+      content: attr(data-num);
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px;
+      font-weight: 700;
+      opacity: .06;
+      color: white;
+      line-height: 1;
+    }
+
+    .flow-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-title .ico {
+      font-size: 16px;
+    }
+
+    .flow-steps {
+      list-style: none;
+    }
+
+    .flow-steps li {
+      font-size: 11.5px;
+      color: var(--muted);
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.5;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .flow-steps li:last-child {
+      border: none;
+    }
+
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 1px;
+      min-width: 14px;
+    }
+
+    /* ── two col layout ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media(max-width:700px) {
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── redis key table ── */
+    .key-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+
+    .key-table th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .key-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(30, 45, 69, .5);
+      vertical-align: top;
+    }
+
+    .key-table tr:last-child td {
+      border: none;
+    }
+
+    .key-table tr:hover td {
+      background: rgba(79, 126, 255, .04);
+    }
+
+    .key-name {
+      color: var(--teal);
+    }
+
+    .key-type {
+      color: var(--amber);
+      font-size: 10px;
+    }
+
+    .key-desc {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* ── lua box ── */
+    .lua-box {
+      background: #070B14;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+
+    .lua-comment {
+      color: #4a5568;
+    }
+
+    .lua-keyword {
+      color: #A855F7;
+    }
+
+    .lua-fn {
+      color: #00D4AA;
+    }
+
+    .lua-str {
+      color: #F59E0B;
+    }
+
+    .lua-num {
+      color: #F43F5E;
+    }
+
+    /* ── arrows ── */
+    .arrow-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin: 6px 0;
+      color: var(--dim);
+    }
+
+    .arrow-line {
+      flex: 1;
+      height: 1px;
+      background: var(--dim);
+      max-width: 80px;
+    }
+
+    .arrow-head {
+      font-size: 16px;
+      color: var(--dim);
+    }
+
+    .arrow-label {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      padding: 0 8px;
+    }
+
+    /* ── concurrent diagram ── */
+    .concurrent {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0;
+      align-items: start;
+    }
+
+    .conc-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .conc-mid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 12px;
+      gap: 6px;
+    }
+
+    .conc-step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      text-align: center;
+      position: relative;
+    }
+
+    .conc-step.win {
+      border-color: rgba(34, 197, 94, .4);
+      color: var(--green);
+    }
+
+    .conc-step.lose {
+      border-color: rgba(244, 63, 94, .4);
+      color: var(--rose);
+    }
+
+    .conc-step.redis {
+      border-color: rgba(245, 158, 11, .4);
+      color: var(--amber);
+      background: rgba(245, 158, 11, .05);
+    }
+
+    .conc-step.ok {
+      border-color: rgba(0, 212, 170, .4);
+      color: var(--teal);
+    }
+
+    .conc-line {
+      width: 1px;
+      flex: 1;
+      min-height: 20px;
+      background: var(--dim);
+    }
+
+    /* ── error map ── */
+    .error-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+
+    .error-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .error-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .error-name {
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .error-msg {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    /* status colors */
+    .s-200 {
+      color: var(--green);
+    }
+
+    .s-201 {
+      color: var(--teal);
+    }
+
+    .s-400 {
+      color: var(--amber);
+    }
+
+    .s-401 {
+      color: var(--rose);
+    }
+
+    .s-403 {
+      color: var(--rose);
+    }
+
+    .s-404 {
+      color: var(--amber);
+    }
+
+    .s-409 {
+      color: #F97316;
+    }
+
+    .s-410 {
+      color: var(--purple);
+    }
+
+    .s-422 {
+      color: var(--amber);
+    }
+
+    .s-429 {
+      color: var(--rose);
+    }
+
+    .s-503 {
+      color: var(--rose);
+    }
+
+    .s-500 {
+      color: var(--rose);
+    }
+
+    /* ── route table ── */
+    .route-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .route-table th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .route-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid rgba(30, 45, 69, .4);
+      vertical-align: middle;
+    }
+
+    .route-table tr:last-child td {
+      border: none;
+    }
+
+    .method {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 2px 6px;
+      display: inline-block;
+    }
+
+    .GET {
+      background: rgba(34, 197, 94, .15);
+      color: #4ADE80;
+    }
+
+    .POST {
+      background: rgba(79, 126, 255, .15);
+      color: #7BA7FF;
+    }
+
+    .PATCH {
+      background: rgba(245, 158, 11, .15);
+      color: #FBB540;
+    }
+
+    .DELETE {
+      background: rgba(244, 63, 94, .15);
+      color: #F87191;
+    }
+
+    .route-path {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    .route-auth {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .route-desc {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── prompt split ── */
+    .split-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .split-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .split-content {
+      flex: 1;
+    }
+
+    .split-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .split-covers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .cover-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      color: var(--muted);
+    }
+
+    /* ── footer ── */
+    .footer {
+      text-align: center;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="badge"><span class="badge-dot"></span>Production System Architecture</div>
+      <h1>Event Booking &<br><span>Queue Management</span></h1>
+      <p class="subtitle">Node.js · TypeScript · MongoDB · Redis · BullMQ</p>
+    </div>
+
+    <!-- LAYER 1: CLIENT -->
+    <div class="sec-label">Client Layer</div>
+    <div class="layer l-client" style="margin-bottom:4px;">
+      <div class="layer-title">
+        <span class="dot" style="background:var(--muted)"></span>
+        <span style="color:var(--muted)">Consumers</span>
+      </div>
+      <div class="chips">
+        <div class="chip c-dim"><span class="chip-icon">🌐</span>
+          <div class="chip-body"><span>REST API Client</span><span class="chip-sub">HTTP/HTTPS</span></div>
+        </div>
+        <div class="chip c-dim"><span class="chip-icon">📡</span>
+          <div class="chip-body"><span>WebSocket Client</span><span class="chip-sub">Socket.io</span></div>
+        </div>
+        <div class="chip c-dim"><span class="chip-icon">📱</span>
+          <div class="chip-body"><span>Mobile / Web App</span><span class="chip-sub">any frontend</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">HTTPS + WSS</div>
+      <div class="arrow-head">↓</div>
+      <div class="arrow-line"></div>
+    </div>
+
+    <!-- LAYER 2: MIDDLEWARE -->
+    <div class="sec-label">API Gateway & Middleware</div>
+    <div class="layer l-api" style="margin-bottom:4px;">
+      <div class="layer-title"><span class="dot" style="background:var(--accent)"></span><span
+          style="color:var(--accent)">Express Middleware Stack (order matters)</span></div>
+      <div class="chips">
+        <div class="chip c-dim"><span class="chip-icon">🪖</span>
+          <div class="chip-body"><span>Helmet</span><span class="chip-sub">security headers</span></div>
+        </div>
+        <div class="chip c-dim"><span class="chip-icon">🔗</span>
+          <div class="chip-body"><span>CORS</span><span class="chip-sub">origin whitelist</span></div>
+        </div>
+        <div class="chip c-dim"><span class="chip-icon">📋</span>
+          <div class="chip-body"><span>Pino HTTP</span><span class="chip-sub">request logging + redact</span></div>
+        </div>
+        <div class="chip c-dim"><span class="chip-icon">🆔</span>
+          <div class="chip-body"><span>Request ID</span><span class="chip-sub">X-Request-ID header</span></div>
+        </div>
+        <div class="chip c-rose"><span class="chip-icon">🚦</span>
+          <div class="chip-body"><span>Rate Limiter</span><span class="chip-sub">sliding window / Lua</span></div>
+        </div>
+        <div class="chip c-accent"><span class="chip-icon">🔐</span>
+          <div class="chip-body"><span>Authenticate</span><span class="chip-sub">JWT verify</span></div>
+        </div>
+        <div class="chip c-purple"><span class="chip-icon">🛡️</span>
+          <div class="chip-body"><span>Authorize</span><span class="chip-sub">RBAC factory</span></div>
+        </div>
+        <div class="chip c-amber"><span class="chip-icon">✅</span>
+          <div class="chip-body"><span>Validate</span><span class="chip-sub">Zod schema</span></div>
+        </div>
+        <div class="chip c-teal"><span class="chip-icon">♻️</span>
+          <div class="chip-body"><span>Idempotency</span><span class="chip-sub">idem:{userId}:{key}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">validated request</div>
+      <div class="arrow-head">↓</div>
+      <div class="arrow-line"></div>
+    </div>
+
+    <!-- LAYER 3: MODULES -->
+    <div class="sec-label">Core Modules (Feature-First Architecture)</div>
+    <div class="layer l-services" style="margin-bottom:4px;">
+      <div class="layer-title"><span class="dot" style="background:var(--teal)"></span><span
+          style="color:var(--teal)">Business Logic Services</span></div>
+      <div class="chips">
+        <div class="chip c-accent"><span class="chip-icon">🔑</span>
+          <div class="chip-body"><span>Auth Module</span><span class="chip-sub">register · login · refresh ·
+              logout</span></div>
+        </div>
+        <div class="chip c-purple"><span class="chip-icon">🏥</span>
+          <div class="chip-body"><span>Provider Module</span><span class="chip-sub">create · update · generate
+              slots</span></div>
+        </div>
+        <div class="chip c-teal"><span class="chip-icon">📅</span>
+          <div class="chip-body"><span>Slot Module</span><span class="chip-sub">getSlots · enriched DTO · cache</span>
+          </div>
+        </div>
+        <div class="chip c-green"><span class="chip-icon">🎟️</span>
+          <div class="chip-body"><span>Booking Module</span><span class="chip-sub">book · confirm · cancel</span></div>
+        </div>
+        <div class="chip c-amber"><span class="chip-icon">⏳</span>
+          <div class="chip-body"><span>Queue Module</span><span class="chip-sub">join · promoteBatch · confirm ·
+              leave</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">read / write</div>
+      <div class="arrow-head">↓</div>
+      <div class="arrow-line"></div>
+    </div>
+
+    <!-- LAYER 4: DATA -->
+    <div class="sec-label">Data & Cache Layer</div>
+    <div class="two-col" style="margin-bottom:4px;">
+      <div class="layer l-data">
+        <div class="layer-title"><span class="dot" style="background:var(--amber)"></span><span
+            style="color:var(--amber)">MongoDB — Source of Truth</span></div>
+        <div class="chips" style="gap:6px;">
+          <div class="chip c-amber" style="padding:6px 10px;"><span class="chip-icon">👤</span>
+            <div class="chip-body"><span style="font-size:11px;">users</span></div>
+          </div>
+          <div class="chip c-amber" style="padding:6px 10px;"><span class="chip-icon">🏥</span>
+            <div class="chip-body"><span style="font-size:11px;">providers</span></div>
+          </div>
+          <div class="chip c-amber" style="padding:6px 10px;"><span class="chip-icon">📅</span>
+            <div class="chip-body"><span style="font-size:11px;">slots</span></div>
+          </div>
+          <div class="chip c-amber" style="padding:6px 10px;"><span class="chip-icon">🎟️</span>
+            <div class="chip-body"><span style="font-size:11px;">bookings</span></div>
+          </div>
+          <div class="chip c-amber" style="padding:6px 10px;"><span class="chip-icon">⏳</span>
+            <div class="chip-body"><span style="font-size:11px;">queue-entries</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="layer l-data">
+        <div class="layer-title"><span class="dot" style="background:var(--rose)"></span><span
+            style="color:var(--rose)">Redis — Speed Layer</span></div>
+        <div class="chips" style="gap:6px;">
+          <div class="chip c-rose" style="padding:6px 10px;font-size:11px;"><span>slot:{id}:available</span></div>
+          <div class="chip c-rose" style="padding:6px 10px;font-size:11px;"><span>queue:{slotId}</span></div>
+          <div class="chip c-rose" style="padding:6px 10px;font-size:11px;"><span>rt:{userId}:{jti}</span></div>
+          <div class="chip c-rose" style="padding:6px 10px;font-size:11px;"><span>rl:{ip}:{path}</span></div>
+          <div class="chip c-rose" style="padding:6px 10px;font-size:11px;"><span>idem:{userId}:{key}</span></div>
+          <div class="chip c-rose" style="padding:6px 10px;font-size:11px;"><span>provider:slots:{id}:{date}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">async jobs</div>
+      <div class="arrow-head">↓</div>
+      <div class="arrow-line"></div>
+    </div>
+
+    <!-- LAYER 5: WORKERS -->
+    <div class="sec-label">Background Workers (BullMQ)</div>
+    <div class="layer l-workers" style="margin-bottom:4px;">
+      <div class="layer-title"><span class="dot" style="background:var(--rose)"></span><span
+          style="color:var(--rose)">Async Job Processors</span></div>
+      <div class="chips">
+        <div class="chip c-rose"><span class="chip-icon">⏱️</span>
+          <div class="chip-body"><span>Expiration Worker</span><span class="chip-sub">cancels unconfirmed bookings @
+              +15min</span></div>
+        </div>
+        <div class="chip c-purple"><span class="chip-icon">🚀</span>
+          <div class="chip-body"><span>Promotion Worker</span><span class="chip-sub">promoteBatch on cancellation</span>
+          </div>
+        </div>
+        <div class="chip c-amber"><span class="chip-icon">⌛</span>
+          <div class="chip-body"><span>Queue Confirm Expiry</span><span class="chip-sub">promotes next if missed
+              window</span></div>
+        </div>
+        <div class="chip c-teal"><span class="chip-icon">📧</span>
+          <div class="chip-body"><span>Notification Worker</span><span class="chip-sub">emails — best effort</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">logs + health</div>
+      <div class="arrow-head">↓</div>
+      <div class="arrow-line"></div>
+    </div>
+
+    <!-- LAYER 6: OBS -->
+    <div class="sec-label">Observability & Health</div>
+    <div class="layer l-obs">
+      <div class="layer-title"><span class="dot" style="background:var(--green)"></span><span
+          style="color:var(--green)">Monitoring</span></div>
+      <div class="chips">
+        <div class="chip c-green"><span class="chip-icon">📋</span>
+          <div class="chip-body"><span>Pino Logger</span><span class="chip-sub">structured JSON + redaction</span></div>
+        </div>
+        <div class="chip c-green"><span class="chip-icon">❤️</span>
+          <div class="chip-body"><span>GET /health</span><span class="chip-sub">mongo + redis + uptime</span></div>
+        </div>
+        <div class="chip c-green"><span class="chip-icon">🔌</span>
+          <div class="chip-body"><span>Graceful Shutdown</span><span class="chip-sub">SIGTERM → drain → close →
+              exit</span></div>
+        </div>
+        <div class="chip c-green"><span class="chip-icon">🌐</span>
+          <div class="chip-body"><span>Socket.io</span><span class="chip-sub">Redis adapter — multi-instance</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: BOOKING FLOW -->
+    <div style="margin-top:48px;">
+      <div class="sec-label">Critical Flow — Booking with Race Condition Prevention</div>
+      <div class="layer" style="background:var(--card);">
+        <div class="concurrent">
+          <div class="conc-col">
+            <div class="conc-step" style="border-color:rgba(79,126,255,.4);color:var(--accent);">👤 User A<br><small
+                style="font-size:10px;opacity:.7;">POST /bookings { slotId }</small></div>
+            <div class="conc-step win">✅ DECR → 2<br><small style="font-size:10px;">lock acquired</small></div>
+            <div class="conc-step ok">Mongoose Transaction<br><small style="font-size:10px;">slot.booked++ + create
+                booking</small></div>
+            <div class="conc-step ok">201 Booking Confirmed<br><small style="font-size:10px;">WS:
+                booking:confirmed</small></div>
+          </div>
+          <div class="conc-mid">
+            <div style="width:1px;height:30px;background:var(--dim);"></div>
+            <div class="conc-step redis" style="font-size:10px;padding:10px;text-align:center;">
+              <div style="font-weight:700;margin-bottom:6px;">BOOK_SLOT_SCRIPT</div>
+              <div style="color:var(--muted);">Lua — atomic</div>
+              <div style="color:var(--muted);">single Redis op</div>
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+                <div>slot:{id}:available</div>
+                <div style="color:var(--amber);font-weight:700;">= 3 → 2</div>
+              </div>
+            </div>
+            <div class="conc-step redis" style="font-size:10px;padding:10px;text-align:center;">
+              <div style="font-weight:700;margin-bottom:4px;">User B</div>
+              <div style="color:var(--rose);">DECR → 1</div>
+              <div style="color:var(--muted);font-size:9px;">also succeeds<br>(capacity=3)</div>
+            </div>
+            <div style="width:1px;flex:1;background:var(--dim);min-height:20px;"></div>
+          </div>
+          <div class="conc-col">
+            <div class="conc-step" style="border-color:rgba(79,126,255,.4);color:var(--accent);">👤 User B<br><small
+                style="font-size:10px;opacity:.7;">POST /bookings { slotId }</small></div>
+            <div class="conc-step win">✅ DECR → 1<br><small style="font-size:10px;">also succeeds</small></div>
+            <div class="conc-step ok">Mongoose Transaction<br><small style="font-size:10px;">slot.booked++ + create
+                booking</small></div>
+            <div class="conc-step ok">201 Booking Confirmed<br><small style="font-size:10px;">no race condition
+                ✓</small></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <div class="concurrent">
+            <div class="conc-col">
+              <div class="conc-step" style="border-color:rgba(79,126,255,.4);color:var(--accent);">👤 User C<br><small
+                  style="font-size:10px;opacity:.7;">slot now full (booked=capacity)</small></div>
+              <div class="conc-step lose">DECR returns -1<br><small style="font-size:10px;">slot full</small></div>
+              <div class="conc-step lose">409 SLOT_FULL<br><small style="font-size:10px;">canJoinQueue: true</small>
+              </div>
+            </div>
+            <div class="conc-mid">
+              <div style="width:1px;height:20px;background:var(--dim);"></div>
+              <div class="conc-step"
+                style="font-size:10px;padding:8px 10px;border-color:rgba(244,63,94,.4);color:var(--rose);">
+                slot:available = 0<br>
+                <span style="color:var(--muted);">Lua returns -1</span>
+              </div>
+              <div style="width:1px;flex:1;background:var(--dim);min-height:10px;"></div>
+            </div>
+            <div class="conc-col">
+              <div class="conc-step" style="border-color:rgba(0,212,170,.4);color:var(--teal);font-size:11px;">User C
+                decides to join queue<br><small style="font-size:10px;opacity:.7;">POST /queue/:slotId/join</small>
+              </div>
+              <div class="conc-step ok">ZADD queue:{slotId}<br><small style="font-size:10px;">score = Date.now()
+                  (FIFO)</small></div>
+              <div class="conc-step ok">202 Queued<br><small style="font-size:10px;">position + estimatedWait</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: QUEUE PROMOTION -->
+    <div style="margin-top:32px;">
+      <div class="sec-label">Queue Promotion Flow</div>
+      <div class="flow-grid">
+        <div class="flow-card" data-num="1">
+          <div class="flow-title"><span class="ico">❌</span> Cancellation</div>
+          <ul class="flow-steps">
+            <li><span class="step-num">1</span>Booking status → cancelled</li>
+            <li><span class="step-num">2</span>slot.booked-- (Mongo txn)</li>
+            <li><span class="step-num">3</span>RELEASE_SLOT_SCRIPT (Redis INCR)</li>
+            <li><span class="step-num">4</span>Enqueue PROMOTION job immediately</li>
+          </ul>
+        </div>
+        <div class="flow-card" data-num="2">
+          <div class="flow-title"><span class="ico">🚀</span> Promotion Worker</div>
+          <ul class="flow-steps">
+            <li><span class="step-num">1</span>Read available = capacity - booked</li>
+            <li><span class="step-num">2</span>if available ≤ 0 → exit (idempotent)</li>
+            <li><span class="step-num">3</span>promoteBatch(slotId, available)</li>
+            <li><span class="step-num">4</span>Lock queue:{slotId} for entire batch</li>
+          </ul>
+        </div>
+        <div class="flow-card" data-num="3">
+          <div class="flow-title"><span class="ico">📢</span> promoteBatch</div>
+          <ul class="flow-steps">
+            <li><span class="step-num">1</span>ZPOPMIN queue:{slotId} (FIFO)</li>
+            <li><span class="step-num">2</span>QueueEntry → status: notified</li>
+            <li><span class="step-num">3</span>WS: queue:your_turn + deadline</li>
+            <li><span class="step-num">4</span>Repeat for each available seat</li>
+          </ul>
+        </div>
+        <div class="flow-card" data-num="4">
+          <div class="flow-title"><span class="ico">✅</span> User Confirms</div>
+          <ul class="flow-steps">
+            <li><span class="step-num">1</span>Within QUEUE_CONFIRM_MINUTES</li>
+            <li><span class="step-num">2</span>BOOK_SLOT_SCRIPT (atomic DECR)</li>
+            <li><span class="step-num">3</span>Mongo txn: slot.booked++ + booking</li>
+            <li><span class="step-num">4</span>QueueEntry → confirmed</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: REDIS KEYS -->
+    <div style="margin-top:32px;">
+      <div class="sec-label">Redis Key Schema</div>
+      <div class="layer" style="padding:0;overflow:hidden;">
+        <table class="key-table">
+          <thead>
+            <tr>
+              <th>Key Pattern</th>
+              <th>Type</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="key-name">slot:{slotId}:available</td>
+              <td class="key-type">String</td>
+              <td class="key-desc">DECR/INCR counter — primary overbooking prevention</td>
+            </tr>
+            <tr>
+              <td class="key-name">queue:{slotId}</td>
+              <td class="key-type">Sorted Set</td>
+              <td class="key-desc">FIFO queue, score = timestamp</td>
+            </tr>
+            <tr>
+              <td class="key-name">queue:length:{slotId}</td>
+              <td class="key-type">String</td>
+              <td class="key-desc">Cached ZCARD to avoid per-request ZCARD calls</td>
+            </tr>
+            <tr>
+              <td class="key-name">provider:slots:{id}:{date}</td>
+              <td class="key-type">String (JSON)</td>
+              <td class="key-desc">Cached slot list, TTL = CACHE_TTL_SECONDS</td>
+            </tr>
+            <tr>
+              <td class="key-name">slot:availability:{slotId}</td>
+              <td class="key-type">String (JSON)</td>
+              <td class="key-desc">Cached single slot enriched DTO</td>
+            </tr>
+            <tr>
+              <td class="key-name">rt:{userId}:{jti}</td>
+              <td class="key-type">String</td>
+              <td class="key-desc">SHA-256 hashed refresh token, TTL = refresh expiry</td>
+            </tr>
+            <tr>
+              <td class="key-name">rl:{ip}:{path}</td>
+              <td class="key-type">Sorted Set</td>
+              <td class="key-desc">Sliding window rate limit entries</td>
+            </tr>
+            <tr>
+              <td class="key-name">idem:{userId}:{key}</td>
+              <td class="key-type">String (JSON)</td>
+              <td class="key-desc">Cached idempotent response, TTL = 24h</td>
+            </tr>
+            <tr>
+              <td class="key-name">lock:queue:{slotId}</td>
+              <td class="key-type">String</td>
+              <td class="key-desc">Distributed lock for promoteBatch only</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION: LUA SCRIPTS -->
+    <div style="margin-top:32px;">
+      <div class="sec-label">Lua Scripts — Atomic Redis Operations</div>
+      <div class="two-col">
+        <div class="layer" style="padding:16px;">
+          <div class="layer-title"><span class="dot" style="background:var(--teal)"></span><span
+              style="color:var(--teal)">BOOK_SLOT_SCRIPT</span></div>
+          <div class="lua-box">
+            <span class="lua-keyword">local</span> current = redis.<span class="lua-fn">call</span>(<span
+              class="lua-str">"GET"</span>, KEYS[<span class="lua-num">1</span>])<br>
+            <span class="lua-keyword">if</span> current == <span class="lua-keyword">false</span> <span
+              class="lua-keyword">then</span><br>
+            &nbsp;&nbsp;<span class="lua-keyword">return</span> <span class="lua-num">-2</span> <span
+              class="lua-comment">-- key missing, init needed</span><br>
+            <span class="lua-keyword">end</span><br>
+            <span class="lua-keyword">if</span> tonumber(current) &lt;= <span class="lua-num">0</span> <span
+              class="lua-keyword">then</span><br>
+            &nbsp;&nbsp;<span class="lua-keyword">return</span> <span class="lua-num">-1</span> <span
+              class="lua-comment">-- slot full</span><br>
+            <span class="lua-keyword">end</span><br>
+            <span class="lua-keyword">return</span> redis.<span class="lua-fn">call</span>(<span
+              class="lua-str">"DECR"</span>, KEYS[<span class="lua-num">1</span>])
+          </div>
+        </div>
+        <div class="layer" style="padding:16px;">
+          <div class="layer-title"><span class="dot" style="background:var(--amber)"></span><span
+              style="color:var(--amber)">RATE_LIMIT_SCRIPT</span></div>
+          <div class="lua-box">
+            redis.<span class="lua-fn">call</span>(<span class="lua-str">"ZREMRANGEBYSCORE"</span>,<br>
+            &nbsp;&nbsp;KEYS[<span class="lua-num">1</span>], <span class="lua-num">0</span>, ARGV[<span
+              class="lua-num">2</span>])<br>
+            redis.<span class="lua-fn">call</span>(<span class="lua-str">"ZADD"</span>,<br>
+            &nbsp;&nbsp;KEYS[<span class="lua-num">1</span>], ARGV[<span class="lua-num">1</span>], ARGV[<span
+              class="lua-num">1</span>])<br>
+            <span class="lua-keyword">local</span> count = redis.<span class="lua-fn">call</span>(<br>
+            &nbsp;&nbsp;<span class="lua-str">"ZCARD"</span>, KEYS[<span class="lua-num">1</span>])<br>
+            redis.<span class="lua-fn">call</span>(<span class="lua-str">"EXPIRE"</span>,<br>
+            &nbsp;&nbsp;KEYS[<span class="lua-num">1</span>], ARGV[<span class="lua-num">3</span>])<br>
+            <span class="lua-keyword">return</span> count
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: API ROUTES -->
+    <div style="margin-top:32px;">
+      <div class="sec-label">API Endpoints</div>
+      <div class="layer" style="padding:0;overflow:hidden;">
+        <table class="route-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Path</th>
+              <th>Auth</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/auth/register</td>
+              <td class="route-auth">—</td>
+              <td class="route-desc">Register user/provider/admin</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/auth/login</td>
+              <td class="route-auth">—</td>
+              <td class="route-desc">Login → access + refresh tokens</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/auth/refresh</td>
+              <td class="route-auth">—</td>
+              <td class="route-desc">Rotate refresh token</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/auth/logout</td>
+              <td class="route-auth">🔒 any</td>
+              <td class="route-desc">Revoke refresh token</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/providers</td>
+              <td class="route-auth">🔒 provider</td>
+              <td class="route-desc">Create provider profile</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/api/v1/providers/:id</td>
+              <td class="route-auth">🔒 any</td>
+              <td class="route-desc">Get provider details</td>
+            </tr>
+            <tr>
+              <td><span class="method PATCH">PATCH</span></td>
+              <td class="route-path">/api/v1/providers/:id</td>
+              <td class="route-auth">🔒 provider</td>
+              <td class="route-desc">Update working hours / capacity</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/providers/:id/slots/generate</td>
+              <td class="route-auth">🔒 provider</td>
+              <td class="route-desc">Auto-generate slots for date range</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/api/v1/slots?providerId&date</td>
+              <td class="route-auth">🔒 any</td>
+              <td class="route-desc">List slots with enriched DTO</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/api/v1/slots/:id</td>
+              <td class="route-auth">🔒 any</td>
+              <td class="route-desc">Single slot with userBookingStatus</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/bookings</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">Book slot (Lua atomic) — 409 if full</td>
+            </tr>
+            <tr>
+              <td><span class="method PATCH">PATCH</span></td>
+              <td class="route-path">/api/v1/bookings/:id/confirm</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">Confirm pending booking</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/api/v1/bookings/me</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">My bookings history</td>
+            </tr>
+            <tr>
+              <td><span class="method DELETE">DELETE</span></td>
+              <td class="route-path">/api/v1/bookings/:id</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">Cancel → triggers promotion</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/api/v1/bookings</td>
+              <td class="route-auth">🔒 admin</td>
+              <td class="route-desc">All bookings with filters + pagination</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/queue/:slotId/join</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">Explicit join — only if slot full</td>
+            </tr>
+            <tr>
+              <td><span class="method POST">POST</span></td>
+              <td class="route-path">/api/v1/queue/:slotId/confirm</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">Confirm promoted queue slot</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/api/v1/queue/:slotId/position</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">My position + estimatedWait</td>
+            </tr>
+            <tr>
+              <td><span class="method DELETE">DELETE</span></td>
+              <td class="route-path">/api/v1/queue/:slotId/leave</td>
+              <td class="route-auth">🔒 user</td>
+              <td class="route-desc">Leave queue</td>
+            </tr>
+            <tr>
+              <td><span class="method GET">GET</span></td>
+              <td class="route-path">/health</td>
+              <td class="route-auth">—</td>
+              <td class="route-desc">Mongo + Redis + uptime status</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION: ERRORS -->
+    <div style="margin-top:32px;">
+      <div class="sec-label">Error Codes</div>
+      <div class="error-grid">
+        <div class="error-item"><span class="error-code s-422">422</span>
+          <div>
+            <div class="error-name">VALIDATION_ERROR</div>
+            <div class="error-msg">Zod schema failed</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-400">400</span>
+          <div>
+            <div class="error-name">INVALID_ID</div>
+            <div class="error-msg">Bad ObjectId format</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-404">404</span>
+          <div>
+            <div class="error-name">NOT_FOUND</div>
+            <div class="error-msg">Resource missing</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-401">401</span>
+          <div>
+            <div class="error-name">UNAUTHORIZED</div>
+            <div class="error-msg">Bad credentials</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-403">403</span>
+          <div>
+            <div class="error-name">FORBIDDEN</div>
+            <div class="error-msg">Wrong role</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-409">409</span>
+          <div>
+            <div class="error-name">ALREADY_BOOKED</div>
+            <div class="error-msg">Active booking exists</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-409">409</span>
+          <div>
+            <div class="error-name">ALREADY_IN_QUEUE</div>
+            <div class="error-msg">Queue entry exists</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-409">409</span>
+          <div>
+            <div class="error-name">SLOT_FULL</div>
+            <div class="error-msg">+ canJoinQueue: true</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-409">409</span>
+          <div>
+            <div class="error-name">SLOT_NOT_FULL</div>
+            <div class="error-msg">+ canBook: true</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-410">410</span>
+          <div>
+            <div class="error-name">QUEUE_CONFIRM_EXPIRED</div>
+            <div class="error-msg">Window passed</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-401">401</span>
+          <div>
+            <div class="error-name">TOKEN_EXPIRED</div>
+            <div class="error-msg">JWT access expired</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-401">401</span>
+          <div>
+            <div class="error-name">REFRESH_TOKEN_REUSE</div>
+            <div class="error-msg">Family revoked</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-429">429</span>
+          <div>
+            <div class="error-name">RATE_LIMIT_EXCEEDED</div>
+            <div class="error-msg">+ Retry-After header</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-503">503</span>
+          <div>
+            <div class="error-name">LOCK_UNAVAILABLE</div>
+            <div class="error-msg">Queue lock failed</div>
+          </div>
+        </div>
+        <div class="error-item"><span class="error-code s-500">500</span>
+          <div>
+            <div class="error-name">INTERNAL_ERROR</div>
+            <div class="error-msg">Stack hidden in prod</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: PROMPT SPLIT -->
+    <div style="margin-top:48px;">
+      <div class="sec-label">Prompt Split Strategy</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="split-box">
+          <div class="split-num" style="background:rgba(79,126,255,.15);color:var(--accent);">1</div>
+          <div class="split-content">
+            <div class="split-title" style="color:var(--accent);">Prompt 1 — Foundation Layer</div>
+            <div style="font-size:12px;color:var(--muted);">Everything the second prompt depends on. Must be implemented
+              first.</div>
+            <div class="split-covers">
+              <span class="cover-tag">config/</span>
+              <span class="cover-tag">types/</span>
+              <span class="cover-tag">utils/</span>
+              <span class="cover-tag">models/</span>
+              <span class="cover-tag">services/</span>
+              <span class="cover-tag">middleware/</span>
+              <span class="cover-tag">auth module</span>
+              <span class="cover-tag">provider module</span>
+              <span class="cover-tag">slot module</span>
+              <span class="cover-tag">app.ts</span>
+            </div>
+          </div>
+        </div>
+        <div class="split-box">
+          <div class="split-num" style="background:rgba(0,212,170,.15);color:var(--teal);">2</div>
+          <div class="split-content">
+            <div class="split-title" style="color:var(--teal);">Prompt 2 — Business Logic Layer</div>
+            <div style="font-size:12px;color:var(--muted);">Builds on Prompt 1. Imports types, services, models already
+              created.</div>
+            <div class="split-covers">
+              <span class="cover-tag">booking module</span>
+              <span class="cover-tag">queue module</span>
+              <span class="cover-tag">workers/</span>
+              <span class="cover-tag">websocket</span>
+              <span class="cover-tag">server.ts</span>
+              <span class="cover-tag">docker-compose</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Event Booking & Queue Management System &nbsp;·&nbsp; Production Architecture &nbsp;·&nbsp;
+      Node.js · TypeScript · MongoDB · Redis · BullMQ · Socket.io
+    </div>
+  </div>
+</body>
+
+</html>

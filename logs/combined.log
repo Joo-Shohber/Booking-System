@@ -1,0 +1,68 @@
+{"level":30,"time":1777639629818,"pid":20588,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777639629819,"pid":20588,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777639629848,"pid":20588,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777639630054,"pid":20588,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777639630540,"pid":20588,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777639630548,"pid":20588,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777639630557,"pid":20588,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777639630559,"pid":20588,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777639641526,"pid":13928,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777639641526,"pid":13928,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777639641553,"pid":13928,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777639642057,"pid":13928,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777639643404,"pid":13928,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777639643407,"pid":13928,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777639643411,"pid":13928,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777639643413,"pid":13928,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777640432797,"pid":16084,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777640432797,"pid":16084,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777640432833,"pid":16084,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777640433049,"pid":16084,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777640433535,"pid":16084,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777640433537,"pid":16084,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777640433542,"pid":16084,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777640433544,"pid":16084,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777640678002,"pid":16240,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777640678002,"pid":16240,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777640678031,"pid":16240,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777640678332,"pid":16240,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777640678811,"pid":16240,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777640678815,"pid":16240,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777640678819,"pid":16240,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777640678820,"pid":16240,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777640804221,"pid":3244,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777640804222,"pid":3244,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777640804253,"pid":3244,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777640804461,"pid":3244,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777640804945,"pid":3244,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777640804949,"pid":3244,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777640804954,"pid":3244,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777640804956,"pid":3244,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777641016097,"pid":20976,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777641016097,"pid":20976,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777641016122,"pid":20976,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777641016416,"pid":20976,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777641016898,"pid":20976,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777641016903,"pid":20976,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777641016907,"pid":20976,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777641016909,"pid":20976,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777641045218,"pid":13852,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777641045219,"pid":13852,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777641045258,"pid":13852,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777641045473,"pid":13852,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777641045962,"pid":13852,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777641045966,"pid":13852,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777641045971,"pid":13852,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777641045972,"pid":13852,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}
+{"level":30,"time":1777643364119,"pid":19176,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777643364119,"pid":19176,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777643364157,"pid":19176,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777643364766,"pid":19176,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777643366059,"pid":8292,"hostname":"sonic","msg":"Starting server..."}
+{"level":30,"time":1777643366060,"pid":8292,"hostname":"sonic","attempt":1,"msg":"Connecting to MongoDB..."}
+{"level":30,"time":1777643366092,"pid":8292,"hostname":"sonic","msg":"MongoDB connected"}
+{"level":30,"time":1777643366244,"pid":8292,"hostname":"sonic","msg":"Redis connected"}
+{"level":30,"time":1777643366740,"pid":8292,"hostname":"sonic","msg":"Redis ready"}
+{"level":30,"time":1777643366744,"pid":8292,"hostname":"sonic","msg":"WebSocket server initialized"}
+{"level":30,"time":1777643366750,"pid":8292,"hostname":"sonic","msg":"All workers initialized"}
+{"level":30,"time":1777643366752,"pid":8292,"hostname":"sonic","port":3000,"msg":"Server listening on port 3000"}

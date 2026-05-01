@@ -1,0 +1,251 @@
+# Event Booking System
+
+Production-ready REST API for event booking and queue management built with Node.js, TypeScript, MongoDB, and Redis.
+
+---
+
+## Tech Stack
+
+| Layer           | Technology                                  |
+| --------------- | ------------------------------------------- |
+| Runtime         | Node.js + TypeScript                        |
+| Framework       | Express.js                                  |
+| Database        | MongoDB (Mongoose)                          |
+| Cache / Queue   | Redis (ioredis)                             |
+| Background Jobs | BullMQ                                      |
+| Auth            | JWT + Refresh Token Rotation + Google OAuth |
+| File Upload     | Multer + Cloudinary                         |
+| Email           | Nodemailer                                  |
+| Real-time       | Socket.io + Redis Adapter                   |
+| Validation      | Zod                                         |
+| Logging         | Pino                                        |
+
+---
+
+## Features
+
+- **Auth** — Register, Email OTP verification, Login, Refresh token rotation, Logout
+- **Google OAuth** — Login with Google (Passport.js)
+- **Password** — Forget / Reset via OTP, Change password
+- **Profile Image** — Upload / Replace via Cloudinary
+- **Providers** — Create provider profile, generate time slots
+- **Slots** — View available slots with real-time availability
+- **Bookings** — Atomic booking with Lua scripts, auto-expiry via BullMQ
+- **Queue** — FIFO waitlist, auto-promotion when slot frees up
+- **Real-time** — WebSocket notifications for queue events
+- **Admin** — Delete users
+
+---
+
+## Project Structure
+
+```
+src/
+├── config/           # env, database, redis, passport, cloudinary, logger
+├── types/            # enums, errors, express.d.ts
+├── utils/            # async-handler, lua-scripts, slot-generator
+├── services/         # cache, lock, email, otp, websocket, cloudinary
+├── middleware/        # authenticate, authorize, validate, rate-limit, multer, idempotency, error-handler
+├── models/           # User, Provider, Slot, Booking, QueueEntry
+├── modules/
+│   ├── auth/         # schema · service · controller · routes · token.service
+│   ├── provider/     # schema · service · controller · routes
+│   ├── slot/         # schema · service · controller · routes · slot.cache
+│   ├── booking/      # schema · service · controller · routes
+│   └── queue/        # service · controller · routes
+├── workers/          # expiration · promotion · queue-confirmation-expiry · notification · queue.definitions
+├── app.ts            # Express setup
+└── server.ts         # HTTP + WebSocket startup + graceful shutdown
+```
+
+---
+
+## Environment Variables
+
+Create a `.env` file in the root:
+
+```dotenv
+# App
+NODE_ENV=development
+PORT=3000
+CLIENT_URL=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/booking-system
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# JWT
+JWT_ACCESS_SECRET=your-access-secret-must-be-at-least-32-chars
+JWT_REFRESH_SECRET=your-refresh-secret-must-be-at-least-32-chars
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+COOKIE_SECRET=your-cookie-secret-must-be-at-least-32-chars
+
+# Email (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your@email.com
+SMTP_PASS=your-app-password
+EMAIL_FROM=your@email.com
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/v1/auth/google/callback
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+
+# Config
+BCRYPT_ROUNDS=12
+OTP_LENGTH=6
+OTP_EXPIRES_MINUTES=10
+BOOKING_EXPIRY_MINUTES=15
+QUEUE_CONFIRM_MINUTES=10
+CACHE_TTL_SECONDS=60
+LOCK_TTL_MS=10000
+SLOT_GENERATE_MAX_DAYS=90
+```
+
+---
+
+## Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Development
+npm run dev
+
+# Build
+npm run build
+
+# Production
+npm start
+```
+
+---
+
+## API Reference
+
+### Auth
+
+| Method | Endpoint                            | Auth   | Description             |
+| ------ | ----------------------------------- | ------ | ----------------------- |
+| POST   | `/api/v1/auth/register`             | —      | Register new user       |
+| POST   | `/api/v1/auth/verify-email`         | —      | Verify email with OTP   |
+| POST   | `/api/v1/auth/resend-otp`           | —      | Resend verification OTP |
+| POST   | `/api/v1/auth/login`                | —      | Login                   |
+| GET    | `/api/v1/auth/google`               | —      | Redirect to Google      |
+| GET    | `/api/v1/auth/google/callback`      | —      | Google OAuth callback   |
+| POST   | `/api/v1/auth/forget-password`      | —      | Send password reset OTP |
+| POST   | `/api/v1/auth/reset-password`       | —      | Reset password with OTP |
+| PATCH  | `/api/v1/auth/change-password`      | ✅     | Change password         |
+| PATCH  | `/api/v1/auth/change-profile-image` | ✅     | Upload profile photo    |
+| DELETE | `/api/v1/auth/users/:id`            | Admin  | Delete user             |
+| GET    | `/api/v1/auth/refresh`              | Cookie | Refresh access token    |
+| GET    | `/api/v1/auth/logout`               | ✅     | Logout                  |
+
+### Providers
+
+| Method | Endpoint                               | Auth     | Description             |
+| ------ | -------------------------------------- | -------- | ----------------------- |
+| POST   | `/api/v1/providers`                    | Provider | Create provider profile |
+| GET    | `/api/v1/providers/:id`                | ✅       | Get provider by ID      |
+| PATCH  | `/api/v1/providers/:id`                | Provider | Update provider         |
+| POST   | `/api/v1/providers/:id/slots/generate` | Provider | Generate time slots     |
+
+### Slots
+
+| Method | Endpoint                          | Auth | Description                        |
+| ------ | --------------------------------- | ---- | ---------------------------------- |
+| GET    | `/api/v1/slots?providerId=&date=` | ✅   | Get slots for a provider on a date |
+| GET    | `/api/v1/slots/:id`               | ✅   | Get slot by ID                     |
+
+### Bookings
+
+| Method | Endpoint                       | Auth  | Description     |
+| ------ | ------------------------------ | ----- | --------------- |
+| POST   | `/api/v1/bookings`             | User  | Book a slot     |
+| GET    | `/api/v1/bookings/me`          | ✅    | My bookings     |
+| PATCH  | `/api/v1/bookings/:id/confirm` | User  | Confirm booking |
+| DELETE | `/api/v1/bookings/:id`         | User  | Cancel booking  |
+| GET    | `/api/v1/bookings`             | Admin | All bookings    |
+
+### Queue
+
+| Method | Endpoint                         | Auth | Description        |
+| ------ | -------------------------------- | ---- | ------------------ |
+| POST   | `/api/v1/queue/:slotId/join`     | User | Join waitlist      |
+| POST   | `/api/v1/queue/:slotId/confirm`  | User | Confirm queue slot |
+| GET    | `/api/v1/queue/:slotId/position` | ✅   | My queue position  |
+| DELETE | `/api/v1/queue/:slotId/leave`    | User | Leave queue        |
+
+---
+
+## Booking Flow
+
+```
+POST /bookings          → Lua atomic decrement (Redis)
+                        → MongoDB transaction (booked++)
+                        → BullMQ delay job (expires in N minutes)
+
+BullMQ expiry job       → Mark EXPIRED + decrement booked
+                        → Release Redis counter
+                        → Promote next in queue
+```
+
+## Queue Flow
+
+```
+POST /queue/:id/join    → Add to Redis sorted set (ZADD score=timestamp)
+                        → Create QueueEntry (WAITING)
+
+Slot freed              → promoteBatch() → ZPOPMIN
+                        → Mark NOTIFIED + set confirmationDeadline
+                        → BullMQ delay job (confirm window)
+
+POST /queue/:id/confirm → Lua atomic decrement
+                        → Create Booking (CONFIRMED)
+                        → Mark QueueEntry (CONFIRMED)
+
+BullMQ confirm expiry   → Mark QueueEntry (EXPIRED)
+                        → Promote next
+```
+
+---
+
+## WebSocket Events
+
+Connect with `auth: { token: '<accessToken>' }`.
+
+| Event               | Direction       | Payload                               |
+| ------------------- | --------------- | ------------------------------------- |
+| `booking:created`   | Server → Client | `{ bookingId, slotId }`               |
+| `booking:cancelled` | Server → Client | `{ bookingId, slotId }`               |
+| `queue:joined`      | Server → Client | `{ slotId, position, estimatedWait }` |
+| `queue:your_turn`   | Server → Client | `{ slotId, confirmationDeadline }`    |
+| `queue:confirmed`   | Server → Client | `{ slotId }`                          |
+| `queue:left`        | Server → Client | `{ slotId }`                          |
+
+---
+
+## Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a project → Enable **Google+ API**
+3. Credentials → OAuth 2.0 Client ID
+4. Add `http://localhost:3000/api/v1/auth/google/callback` to Authorized redirect URIs
+5. Copy `Client ID` and `Client Secret` to `.env`
+
+## Cloudinary Setup
+
+1. Sign up at [cloudinary.com](https://cloudinary.com)
+2. Dashboard → Copy `Cloud Name`, `API Key`, `API Secret`
+3. Add to `.env`
