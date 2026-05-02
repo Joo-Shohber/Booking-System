@@ -54,14 +54,14 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
-    // googleId: { type: String, select: false },
-    // profilePhoto: {
-    //   type: Object,
-    //   default: {
-    //     url: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460__480.png",
-    //     publicId: null,
-    //   },
-    // },
+    googleId: { type: String, select: false },
+    profilePhoto: {
+      type: Object,
+      default: {
+        url: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460__480.png",
+        publicId: null,
+      },
+    },
   },
   { timestamps: true },
 );

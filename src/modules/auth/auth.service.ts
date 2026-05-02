@@ -14,6 +14,8 @@ import getEnv from "../../config/env";
 import getRedis from "../../config/redis";
 import { REDIS_KEYS } from "../../services/cache.service";
 import { RegisterDtoType, LoginDtoType } from "./auth.schema";
+import { deleteImage, uploadImage } from "../../services/cloudinary.service";
+import { JwtPayload } from "../../types/express";
 
 // ==========================
 // REGISTER
@@ -229,9 +231,62 @@ export async function deleteUser(targetUserId: string) {
   const user = await User.findById(targetUserId);
   if (!user) throw new AppError("NOT_FOUND", 404, "User not found");
 
+  // امسح الصورة من Cloudinary لو موجودة
+  if (user.profilePhoto?.publicId) {
+    await deleteImage(user.profilePhoto.publicId);
+  }
+
+  // Revoke all sessions
   await revokeAllUserTokens(targetUserId);
 
   await User.findByIdAndDelete(targetUserId);
 
   return { message: "User deleted successfully." };
+}
+
+// ==========================
+// CHANGE PROFILE IMAGE
+// ==========================
+export async function changeProfileImage(userId: string, fileBuffer: Buffer) {
+  const user = await User.findById(userId);
+  if (!user) throw new AppError("NOT_FOUND", 404, "User not found");
+
+  // امسح الصورة القديمة لو مش الـ default
+  if (user.profilePhoto?.publicId) {
+    await deleteImage(user.profilePhoto.publicId);
+  }
+
+  const result = await uploadImage(fileBuffer, "booking-system/profiles");
+
+  user.profilePhoto = { url: result.secure_url, publicId: result.public_id };
+  await user.save();
+
+  return { profilePhoto: user.profilePhoto };
+}
+
+// ==========================
+// GOOGLE OAUTH
+// ==========================
+export async function googleLogin(user: JwtPayload) {
+  const existUser = await User.findById(user.userId);
+
+  const accessToken = generateAccessToken({
+    userId: user.userId,
+    role: user.role,
+  });
+
+  const refreshToken = await generateRefreshToken(user.userId);
+
+  return {
+    user: {
+      id: existUser!.id,
+      name: existUser!.name,
+      email: existUser!.email,
+      role: existUser!.role,
+    },
+    tokens: {
+      accessToken,
+      refreshToken,
+    },
+  };
 }

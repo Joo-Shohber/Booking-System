@@ -8,10 +8,23 @@ export interface JwtPayload {
 
 declare global {
   namespace Express {
+    interface User {
+      userId: string;
+      role: Role;
+      jti: string;
+    }
+
     interface Request {
-      user: JwtPayload;
+      user: User; // required — بدون ?
       requestId: string;
     }
   }
 }
 
+// override نهائي يمنع Passport من إنه يعمل user optional
+declare module "express-serve-static-core" {
+  interface Request {
+    user: Express.User; // required — بيـoverride تعريف Passport
+    requestId: string;
+  }
+}

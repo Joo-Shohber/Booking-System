@@ -29,13 +29,13 @@ const envSchema = z.object({
   OTP_LENGTH: z.coerce.number().default(6),
   COOKIE_SECRET: z.string().min(32),
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
-  // GOOGLE_CLIENT_ID: z.string(),
-  // GOOGLE_CLIENT_SECRET: z.string(),
-  // GOOGLE_CALLBACK_URL: z.string().url(),
-  // CLOUDINARY_CLOUD_NAME: z.string(),
-  // CLOUDINARY_API_KEY: z.string(),
-  // CLOUDINARY_API_SECRET: z.string(),
-  // CLIENT_URL: z.string().url().default("http://localhost:3000"),
+  GOOGLE_CLIENT_ID: z.string(),
+  GOOGLE_CLIENT_SECRET: z.string(),
+  GOOGLE_CALLBACK_URL: z.string().url(),
+  CLOUDINARY_CLOUD_NAME: z.string(),
+  CLOUDINARY_API_KEY: z.string(),
+  CLOUDINARY_API_SECRET: z.string(),
+  CLIENT_URL: z.string().url().default("http://localhost:3000"),
 });
 
 export type Env = z.infer<typeof envSchema>;

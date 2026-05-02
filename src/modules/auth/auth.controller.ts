@@ -2,6 +2,7 @@ import { Request, RequestHandler, Response } from "express";
 import * as authService from "./auth.service";
 import getEnv from "../../config/env";
 import passport from "passport";
+import { JwtPayload } from "../../types/express";
 
 function parseDurationToMs(duration: string): number {
   const match = duration.match(/^(\d+)([smhd])$/);
@@ -213,4 +214,48 @@ export async function deleteUserHandler(
 ): Promise<void> {
   const result = await authService.deleteUser(req.params.id);
   res.status(200).json({ success: true, data: result });
+}
+
+// PATCH /change-profile-image
+export async function changeProfileImageHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = req.user.userId;
+  if (!userId) return;
+
+  if (!req.file) {
+    res.status(422).json({
+      success: false,
+      error: { code: "NO_FILE", message: "No image uploaded" },
+    });
+    return;
+  }
+
+  const result = await authService.changeProfileImage(userId, req.file.buffer);
+  res.status(200).json({ success: true, data: result });
+}
+
+// GET /google
+export const googleAuthHandler = passport.authenticate("google", {
+  scope: ["profile", "email"],
+  session: false,
+});
+
+// GET /google/callback
+export async function googleCallbackHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const env = getEnv();
+  try {
+    const user = req.user as JwtPayload;
+    const result = await authService.googleLogin(user);
+    setRefreshTokenCookie(res, result.tokens.refreshToken);
+    res.redirect(
+      `${env.CLIENT_URL}/auth/google/success?token=${result.tokens.accessToken}`,
+    );
+  } catch {
+    res.redirect(`${env.CLIENT_URL}/auth/google/error`);
+  }
 }

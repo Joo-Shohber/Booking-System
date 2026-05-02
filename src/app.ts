@@ -2,6 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import passport from "passport";
 import { pinoHttp } from "pino-http";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
@@ -9,7 +10,8 @@ import mongoose from "mongoose";
 import { logger } from "./config/logger";
 import getEnv from "./config/env";
 import getRedis from "./config/redis";
-
+import { initPassport } from "./config/passport";
+import { initCloudinary } from "./config/cloudinary";
 import { rateLimiter } from "./middleware/rate-limit";
 import { errorHandler } from "./middleware/error-handler";
 import { AppError } from "./types/errors";
@@ -22,6 +24,10 @@ import queueRoutes from "./modules/queue/queue.routes";
 
 const app = express();
 const env = getEnv();
+
+// 1. Init third-party configs
+initPassport();
+initCloudinary();
 
 // 2. Security headers
 app.use(helmet());
@@ -39,6 +45,9 @@ app.use(express.json({ limit: "10kb" }));
 
 // 5. Cookie parsing
 app.use(cookieParser(env.COOKIE_SECRET));
+
+// 6. Passport (no sessions — JWT only)
+app.use(passport.initialize());
 
 // 7. Request logging
 app.use(
